@@ -271,9 +271,11 @@ const frontendDist = path.join(__dirname, "../frontend/dist");
 
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
-  app.get("*", (req, res, next) => {
+  app.use((req, res, next) => {
+    if (req.method !== "GET") return next();
     if (req.path.startsWith("/api/")) return next();
-    res.sendFile(path.join(frontendDist, "index.html"));
+    return res.sendFile(path.join(frontendDist, "index.html"));
+
   });
 } else {
   app.get("/", (_req, res) => res.json({ message: "MediStock API is running." }));
@@ -284,7 +286,7 @@ app.use((err, _req, res, _next) => {
   if (err.name === "ValidationError") return res.status(400).json({ message: err.message });
   if (err.name === "CastError") return res.status(400).json({ message: "Invalid record identifier." });
   console.error(err);
-  res.status(500).json({ message: "Something went wrong. Please try again." });
+  res.status(500).json({ message: err.message || "Something went wrong. Please try again." });
 });
 
 const startServer = async () => {
