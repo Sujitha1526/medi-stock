@@ -24,6 +24,19 @@ const app = express();
 app.use(cors({ origin: process.env.CLIENT_URL || true }));
 app.use(express.json({ limit: "1mb" }));
 
+let dbConnected = false;
+app.use(async (_req, _res, next) => {
+  if (!dbConnected) {
+    try {
+      await connectDB();
+      dbConnected = true;
+    } catch (err) {
+      return next(err);
+    }
+  }
+  next();
+});
+
 const User = require("./models/User");
 const Medicine = require("./models/Medicine");
 const Supplier = require("./models/Supplier");
@@ -293,6 +306,7 @@ const startServer = async () => {
   try {
     if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET must be set in the backend environment.");
     await connectDB();
+    dbConnected = true;
     const port = process.env.PORT || 5000;
     app.listen(port, () => console.log(`MediStock API listening on port ${port}`));
   } catch (error) {
