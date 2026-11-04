@@ -1,5 +1,11 @@
 const dns = require("dns");
-dns.setServers(["8.8.8.8", "1.1.1.1"]);
+if (process.env.NODE_ENV !== "production") {
+  try {
+    dns.setServers(["8.8.8.8", "1.1.1.1"]);
+  } catch (e) {
+    // Custom DNS fallback
+  }
+}
 
 require("dotenv").config();
 
@@ -48,7 +54,7 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-app.get("/", (_req, res) => res.json({ message: "MediStock API is running." }));
+app.get("/api", (_req, res) => res.json({ message: "MediStock API is running." }));
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
 app.get("/api/auth/setup-status", asyncRoute(async (_req, res) => {
@@ -62,6 +68,19 @@ app.post("/api/auth/setup", asyncRoute(async (req, res) => {
     return res.status(400).json({ message: "Name, email, and a password of at least 8 characters are required." });
   }
   const user = await User.create({ name: name.trim(), email: email.toLowerCase().trim(), password, role: "admin" });
+  res.status(201).json({ token: signToken(user), user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+}));
+
+app.post("/api/auth/register", asyncRoute(async (req, res) => {
+  const { name, email, password, role = "staff" } = req.body;
+  if (!name?.trim() || !email?.trim() || !password || password.length < 8) {
+    return res.status(400).json({ message: "Name, email, and a password of at least 8 characters are required." });
+  }
+  const existing = await User.findOne({ email: email.toLowerCase().trim() });
+  if (existing) return res.status(409).json({ message: "An account with that email already exists." });
+  const isFirst = (await User.countDocuments()) === 0;
+  const userRole = isFirst ? "admin" : (role === "admin" ? "admin" : "staff");
+  const user = await User.create({ name: name.trim(), email: email.toLowerCase().trim(), password, role: userRole });
   res.status(201).json({ token: signToken(user), user: { id: user._id, name: user.name, email: user.email, role: user.role } });
 }));
 
@@ -245,6 +264,20 @@ app.get("/api/reports", asyncRoute(async (req, res) => {
   ]);
   res.json({ summary: summary[0] || { revenue: 0, orders: 0, averageOrder: 0 }, salesByDay, topMedicines });
 }));
+
+const path = require("path");
+const fs = require("fs");
+const frontendDist = path.join(__dirname, "../frontend/dist");
+
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/")) return next();
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+} else {
+  app.get("/", (_req, res) => res.json({ message: "MediStock API is running." }));
+}
 
 app.use((err, _req, res, _next) => {
   if (err.code === 11000) return res.status(409).json({ message: "A record with that email, SKU, or name already exists." });

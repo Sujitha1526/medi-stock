@@ -11,7 +11,7 @@ import {
   Tooltip, XAxis, YAxis,
 } from "recharts";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "/api" : "http://localhost:5000/api");
 const MEDICINE_CATEGORIES = ["Pain relief", "Antibiotics", "Vitamins & supplements", "Cold & flu", "First aid", "Prescription", "Personal care", "Other"];
 const money = (value) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value || 0);
 const fullMoney = (value) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value || 0);
@@ -84,7 +84,7 @@ function App() {
   }, []);
 
   const signIn = async (mode, form) => {
-    const result = await request(mode === "setup" ? "/auth/setup" : "/auth/login", {
+    const result = await request(mode === "setup" ? "/auth/setup" : mode === "register" ? "/auth/register" : "/auth/login", {
       method: "POST", body: JSON.stringify(form),
     });
     localStorage.setItem("medistock-token", result.token);
@@ -112,9 +112,9 @@ function AuthScreen({ setupNeeded, initialError, onSubmit }) {
     catch (issue) {
       if (mode === "setup" && issue.status === 409) {
         setCanSetUp(false);
-        setMode("login");
+        setMode("register");
         setForm((current) => ({ ...current, password: "" }));
-        setError("This workspace already has an administrator. Sign in with your existing account, or ask an administrator to add you on the Team page.");
+        setError("This workspace already has an administrator. You can create an account or sign in.");
       } else {
         setError(issue.message);
       }
@@ -136,19 +136,21 @@ function AuthScreen({ setupNeeded, initialError, onSubmit }) {
       <section className="auth-panel">
         <div className="auth-mobile-brand"><div className="brand-mark"><Activity size={22} /></div><strong>Medi<span>Stock</span></strong></div>
         <div className="auth-form-wrap">
-          <div className="auth-kicker">{mode === "setup" ? "LET'S GET YOU STARTED" : "WELCOME BACK"}</div>
-          <h2>{mode === "setup" ? "Set up your workspace" : "Sign in to MediStock"}</h2>
-          <p className="auth-intro">{mode === "setup" ? "Create the first administrator account for this workspace." : "Sign in with the email and password your administrator gave you."}</p>
+          <div className="auth-kicker">{mode === "setup" ? "LET'S GET YOU STARTED" : mode === "register" ? "JOIN THE TEAM" : "WELCOME BACK"}</div>
+          <h2>{mode === "setup" ? "Set up your workspace" : mode === "register" ? "Create your account" : "Sign in to MediStock"}</h2>
+          <p className="auth-intro">{mode === "setup" ? "Create the first administrator account for this workspace." : mode === "register" ? "Create your account to access inventory and sales." : "Sign in with your email and password to access your workspace."}</p>
           <form onSubmit={submit} className="auth-form">
-            {mode === "setup" && <label>Full name<input required autoComplete="name" placeholder="e.g. Alex Morgan" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>}
+            {(mode === "setup" || mode === "register") && <label>Full name<input required autoComplete="name" placeholder="e.g. Alex Morgan" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>}
             <label>Work email<input required type="email" autoComplete="username" placeholder="you@pharmacy.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
-            <label>Password<input required type="password" minLength="8" autoComplete={mode === "setup" ? "new-password" : "current-password"} placeholder="At least 8 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
+            <label>Password<input required type="password" minLength="8" autoComplete={mode === "login" ? "current-password" : "new-password"} placeholder="At least 8 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
             {error && <div className="form-error"><CircleAlert size={16} />{error}</div>}
-            <button className="button button-primary auth-submit" disabled={busy}>{busy ? "Please wait…" : mode === "setup" ? "Create workspace" : "Sign in"}<ArrowRight size={17} /></button>
+            <button className="button button-primary auth-submit" disabled={busy}>{busy ? "Please wait…" : mode === "setup" ? "Create workspace" : mode === "register" ? "Create account" : "Sign in"}<ArrowRight size={17} /></button>
           </form>
-          {canSetUp
-            ? <div className="auth-switch">{mode === "setup" ? "Already set up?" : "First time here?"} <button type="button" onClick={() => { setMode(mode === "setup" ? "login" : "setup"); setError(""); }}>{mode === "setup" ? "Sign in" : "Set up your workspace"}</button></div>
-            : <div className="auth-switch">New to this pharmacy? Ask your administrator to add you on the Team page.</div>}
+          {mode === "login" ? (
+            <div className="auth-switch">Need an account? <button type="button" onClick={() => { setMode("register"); setError(""); }}>Create one</button></div>
+          ) : (
+            <div className="auth-switch">Already have an account? <button type="button" onClick={() => { setMode("login"); setError(""); }}>Sign in</button></div>
+          )}
         </div>
         <div className="auth-footnote"><ShieldCheck size={15} /> Your data is protected and only accessible to your team.</div>
       </section>
