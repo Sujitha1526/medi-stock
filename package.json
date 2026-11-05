@@ -4,12 +4,18 @@
   "description": "MediStock Pharmacy Operations Dashboard",
   "main": "backend/server.js",
   "scripts": {
-    "install:all": "npm --prefix backend install && npm --prefix frontend install",
     "build": "npm --prefix backend install && npm --prefix frontend install && npm --prefix frontend run build",
     "start": "node backend/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.11.4"
   },
   "engines": {
     "node": ">=18.0.0"
   }
 }
-
