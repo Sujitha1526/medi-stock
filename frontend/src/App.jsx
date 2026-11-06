@@ -10,6 +10,7 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from "recharts";
+import { mockRequest } from "./mockApi";
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "/api" : "http://localhost:5000/api");
 const MEDICINE_CATEGORIES = ["Pain relief", "Antibiotics", "Vitamins & supplements", "Cold & flu", "First aid", "Prescription", "Personal care", "Other"];
@@ -18,21 +19,30 @@ const fullMoney = (value) => new Intl.NumberFormat("en-US", { style: "currency",
 const dateLabel = (value, options = { month: "short", day: "numeric", year: "numeric" }) => value ? new Date(value).toLocaleDateString("en-US", options) : "—";
 
 async function request(path, { token, ...options } = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(data.message || "Unable to complete this request.");
-    error.status = response.status;
-    throw error;
+  if (typeof window !== "undefined" && window.location.hostname.includes("github.io")) {
+    return mockRequest(path, { token, ...options });
   }
-  return data;
+
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.message || "Unable to complete this request.");
+      error.status = response.status;
+      throw error;
+    }
+    return data;
+  } catch (err) {
+    console.warn("API unavailable, fallback to client store:", err.message);
+    return mockRequest(path, { token, ...options });
+  }
 }
 
 const navItems = [
